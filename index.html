@@ -201,7 +201,7 @@
 
             if (coincidencia) {
                 try {
-                    const respuesta = await fetch(`http://localhost:3000/receta?nombre=${encodeURIComponent(coincidencia)}`);
+                    const respuesta = await fetch(`https://jarvis-backend-2-o8od.onrender.com/receta?nombre=${encodeURIComponent(coincidencia)}`);
                     const info = await respuesta.json();
 
                     inicial.style.display = "none";
