@@ -1,0 +1,18 @@
+{
+  "jarra de limonada": {
+    "titulo": "🍋 Jarra de Limonada",
+    "ingredientes": "8 limones, 2 litros de agua, azúcar al gusto, mucho hielo.",
+    "preparacion": "Exprimir los limones en una jarra grande, mezclar con agua y azúcar. Revolver bien.",
+    "imagen": "https://images.unsplash.com/photo-1551008405-645367873f27?q=80&w=500",
+    "decoracion": "Rodajas de limón flotando y hojas de menta.",
+    "voz": "Preparando una jarra de limonada. Necesitarás ocho limones para dos litros de agua."
+  },
+  "mojito": {
+    "titulo": "🍸 Mojito Cubano",
+    "ingredientes": "Ron blanco, menta fresca, azúcar, soda y lima.",
+    "preparacion": "Macerar la menta con el azúcar y la lima. Añadir hielo picado, el ron y rellenar con soda.",
+    "imagen": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=500",
+    "decoracion": "Una rama de menta fresca y una rodaja de lima.",
+    "voz": "Aquí tienes la receta del mojito. Recuerda no machacar demasiado la menta para que no amargue."
+  }
+}
