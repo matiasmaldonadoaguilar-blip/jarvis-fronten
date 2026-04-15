@@ -182,7 +182,7 @@
         async function consultarSupabase(textoEscuchado) {
             // 1. Obtenemos todos los cócteles de Supabase
             const { data: todosLosCocteles, error } = await _supabase
-                .from('cocteles')
+                .from('cócteles')
                 .select('*');
 
             if (error) {
