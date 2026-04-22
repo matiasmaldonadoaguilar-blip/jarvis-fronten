@@ -233,10 +233,10 @@
                 const texto = e.results[e.results.length - 1][0].transcript.toLowerCase();
                 console.log("Escuchado:", texto);
                 
-                if (texto.includes("jarvis")) {
+                if (texto.includes("Leo")) {
                     activo = true;
                     recetaContenedor.classList.add('escuchando');
-                    hablar("¿En qué te ayudo?");
+                    hablar("Hola, ¿si?");
                     return;
                 }
 
