@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS - Multi-Device System</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --gold: #ffcc00;
+            --gold-glow: rgba(255, 204, 0, 0.4);
+            --cyan: #00ffcc;
+            --cyan-glow: rgba(0, 255, 204, 0.3);
+            --bg: #050505;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #111, #000);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        /* --- CABECERA --- */
+        .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            width: 100%;
+        }
+
+        h1 {
+            font-size: clamp(1.8rem, 8vw, 3.2rem);
+            letter-spacing: clamp(4px, 2vw, 10px);
+            color: var(--gold);
+            text-shadow: 0 0 15px var(--gold-glow);
+            margin: 0;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        #status {
+            color: var(--cyan);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* --- CONTENEDOR PRINCIPAL RESPONSIVO --- */
+        #receta {
+            width: 100%;
+            max-width: 1100px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: clamp(15px, 5vw, 40px);
+            box-sizing: border-box;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- GRID FLEXIBLE (CAMBIA SEGÚN DISPOSITIVO) --- */
+        .grid-receta {
+            display: flex;
+            flex-direction: column; /* Móvil: Vertical */
+            gap: 25px;
+            align-items: center;
+        }
+
+        /* Laptop y Computadoras (Pantallas anchas) */
+        @media (min-width: 850px) {
+            .grid-receta {
+                flex-direction: row; /* Horizontal */
+                align-items: flex-start;
+                text-align: left;
+            }
+            #foto { width: 45%; }
+            #info-texto { width: 55%; }
+        }
+
+        #foto {
+            width: 100%;
+            max-height: 450px;
+            object-fit: cover;
+            border-radius: 20px;
+            border: 1px solid var(--gold);
+            display: none;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .titulo-bebida {
+            font-size: clamp(2rem, 6vw, 3rem);
+            color: #fff;
+            margin: 0 0 15px 0;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .label {
+            color: var(--gold);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .contenido { 
+            font-size: clamp(1.1rem, 4vw, 1.5rem); 
+            line-height: 1.4; 
+            color: #ddd;
+            margin-bottom: 25px;
+        }
+
+        .escuchando-celeste { border-color: var(--cyan) !important; box-shadow: 0 0 40px var(--cyan-glow) !important; }
+        .hablando-dorado { border-color: var(--gold) !important; box-shadow: 0 0 40px var(--gold-glow) !important; }
+
+        #inicial p { color: #666; font-size: 1rem; letter-spacing: 2px; }
+    </style>
+</head>
+<body onclick="despertarSistema()">
+
+    <div class="header">
+        <h1>SISTEMA NEXUS</h1>
+        <div id="status">SISTEMA ONLINE</div>
+    </div>
+
+    <div id="receta">
+        <div id="inicial" style="text-align: center; padding: 40px 0;">
+            <p>PULSA LA PANTALLA PARA INICIAR</p>
+            <p style="color: var(--gold); font-weight: bold;">DI "LEO" PARA COMENZAR</p>
+        </div>
+
+        <div id="dinamico" style="display: none;">
+            <div class="grid-receta">
+                <img id="foto" src="" alt="Bebida">
+                <div id="info-texto">
+                    <h2 id="nombre-bebida" class="titulo-bebida"></h2>
+                    <div>
+                        <span class="label">Ingredientes</span>
+                        <p id="txt-ingredientes" class="contenido" style="color: var(--gold);"></p>
+                    </div>
+                    <div id="sec-preparacion" style="opacity: 0.2; transition: opacity 0.5s;">
+                        <span class="label">Preparación</span>
+                        <p id="txt-preparacion" class="contenido"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const URL_SUPABASE = 'https://bpmxnvvjuxumdateudfi.supabase.co';
+        const KEY_SUPABASE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbXhudnZqdXh1bWRhdGV1ZGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODg0NzMsImV4cCI6MjA5MTg2NDQ3M30.lWDHvHHG1DvmSNHXRIkQiRy0AA6B7m-gdae12TRULIk';
+        const _supabase = supabase.createClient(URL_SUPABASE, KEY_SUPABASE);
+
+        let rec;
+        let voces = [];
+        let estadoInteraccion = "esperando";
+        let datosActuales = null;
+        let microfonoActivo = false;
+        let inicializado = false;
+
+        // Cargar voces con compatibilidad Android
+        function cargarVoces() {
+            voces = window.speechSynthesis.getVoices();
+        }
+        window.speechSynthesis.onvoiceschanged = cargarVoces;
+        cargarVoces();
+
+        function despertarSistema() {
+            cargarVoces();
+            if (!inicializado) {
+                inicializado = true;
+                hablar("Nexus activado y listo.");
+            }
+        }
+
+        function hablar(texto, callback) {
+            window.speechSynthesis.cancel();
+            microfonoActivo = false;
+            if (rec) try { rec.stop(); } catch(e) {}
+
+            document.getElementById("receta").classList.remove('escuchando-celeste');
+            document.getElementById("receta").classList.add('hablando-dorado');
+
+            const mensaje = new SpeechSynthesisUtterance(texto);
+            let mejorVoz = voces.find(v => v.lang.includes("es") && (v.name.includes("male") || v.name.includes("Google"))) || voces.find(v => v.lang.includes("es"));
+            
+            if (mejorVoz) mensaje.voice = mejorVoz;
+            mensaje.rate = 0.95; 
+            mensaje.pitch = 0.75; 
+
+            mensaje.onend = () => {
+                document.getElementById("receta").classList.remove('hablando-dorado');
+                microfonoActivo = true;
+                setTimeout(() => {
+                    if (estadoInteraccion !== "esperando") document.getElementById("receta").classList.add('escuchando-celeste');
+                    if (rec && microfonoActivo) try { rec.start(); } catch(e) {}
+                }, 500); // Delay de seguridad para Android
+                if (callback) callback();
+            };
+            window.speechSynthesis.speak(mensaje);
+        }
+
+        async function buscarCoctel(nombre) {
+            const { data } = await _supabase.from('cocteles').select('*');
+            const coctel = data.find(r => nombre.includes(r.nombre.toLowerCase()));
+            if (coctel) {
+                datosActuales = coctel;
+                document.getElementById("inicial").style.display = "none";
+                document.getElementById("dinamico").style.display = "block";
+                document.getElementById("nombre-bebida").innerText = coctel.nombre;
+                document.getElementById("txt-ingredientes").innerText = coctel.ingredientes;
+                document.getElementById("txt-preparacion").innerText = coctel.preparacion;
+                document.getElementById("foto").src = coctel.imagen;
+                document.getElementById("foto").style.display = "block";
+                document.getElementById("sec-preparacion").style.opacity = "0.2";
+                
+                estadoInteraccion = "preguntando_pasos";
+                hablar(`${coctel.nombre}. Ingredientes: ${coctel.ingredientes}. ¿Quieres la preparación?`);
+            } else {
+                hablar("No encontré ese nombre.");
+            }
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            rec = new SpeechRecognition();
+            rec.lang = "es-ES";
+            rec.continuous = true;
+
+            rec.onresult = (e) => {
+                const texto = e.results[e.results.length - 1][0].transcript.toLowerCase();
+
+                if (texto.includes("repite") && datosActuales) {
+                    if (texto.includes("ingredientes")) hablar(`Ingredientes: ${datosActuales.ingredientes}`);
+                    else hablar(`Pasos: ${datosActuales.preparacion}`);
+                    return;
+                }
+
+                if (texto.includes("leo")) {
+                    estadoInteraccion = "buscando";
+                    hablar("¿Qué preparas?");
+                } else if (estadoInteraccion === "buscando") {
+                    buscarCoctel(texto);
+                } else if (estadoInteraccion === "preguntando_pasos") {
+                    if (texto.includes("sí") || texto.includes("dale") || texto.includes("claro")) {
+                        document.getElementById("sec-preparacion").style.opacity = "1";
+                        hablar(`Pasos: ${datosActuales.preparacion}`);
+                        estadoInteraccion = "finalizado";
+                    }
+                }
+            };
+
+            // Reinicio automático para estabilidad en Android
+            rec.onend = () => { if (microfonoActivo) try { rec.start(); } catch(e) {} };
+            rec.onerror = () => { setTimeout(() => { if (microfonoActivo) try { rec.start(); } catch(e) {} }, 500); };
+            rec.start();
+        }
+    </script>
+</body>
+</html>
