@@ -1,0 +1,22 @@
+{
+  "name": "NEXUS INTELIGENTE",
+  "short_name": "NEXUS",
+  "start_url": "./index.HTML",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ffcc00",
+  "icons": [
+    {
+      "src": "192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
