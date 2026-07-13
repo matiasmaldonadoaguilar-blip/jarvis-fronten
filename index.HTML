@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0800">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(reg => reg.unregister());
+        });
+      }
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS — IA de Coctelería</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:      #0a0800;
+            --bg2:     #110e00;
+            --gold:    #c9922a;
+            --gold2:   #f0c060;
+            --gold3:   #ffe9a0;
+            --cream:   #f5ead8;
+            --dim:     rgba(201,146,42,0.45);
+            --line:    rgba(201,146,42,0.18);
+            --glass:   rgba(15,11,0,0.72);
+            --red:     #c0392b;
+            --red-g:   rgba(192,57,43,0.4);
+            --cyan:    #2de1fc;
+            --cyan-g:  rgba(45,225,252,0.3);
+
+            --f-display: 'Cormorant Garamond', serif;
+            --f-body:    'Montserrat', sans-serif;
+            --f-mono:    'Share Tech Mono', monospace;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--cream);
+            font-family: var(--f-body);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 48px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ── FONDO: vignette + textura + aurora suave ── */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,146,42,0.12), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(201,146,42,0.07), transparent),
+                var(--bg);
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+            pointer-events: none;
+        }
+
+        /* ── LÍNEA SEPARADORA DORADA ── */
+        .gold-rule {
+            width: 100%;
+            max-width: 900px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--gold2), var(--gold), transparent);
+            margin: 8px auto 20px;
+            opacity: 0.5;
+        }
+
+        /* ── HEADER ── */
+        .header { text-align: center; width: 100%; margin-bottom: 6px; }
+
+        .eyebrow {
+            font-family: var(--f-mono);
+            font-size: 0.6rem;
+            letter-spacing: 5px;
+            color: var(--dim);
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-family: var(--f-display);
+            font-weight: 700;
+            font-size: clamp(3rem, 11vw, 6rem);
+            letter-spacing: clamp(8px, 2.5vw, 22px);
+            text-transform: uppercase;
+            color: transparent;
+            background: linear-gradient(160deg, var(--gold) 0%, var(--gold2) 40%, var(--gold3) 60%, var(--gold) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: shimmer 5s linear infinite;
+            line-height: 1.1;
+        }
+        @keyframes shimmer {
+            0%   { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .subtitle {
+            font-family: var(--f-mono);
+            font-size: 0.62rem;
+            letter-spacing: 4px;
+            color: var(--dim);
+            text-transform: uppercase;
+            margin-top: 8px;
+            display: block;
+        }
+
+        /* ── STATUS ── */
+        #status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--f-mono);
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-top: 14px;
+            padding: 6px 16px;
+            border: 1px solid var(--line);
+            background: rgba(201,146,42,0.05);
+            transition: all 0.4s;
+        }
+        #status.error { color: var(--red); border-color: var(--red-g); }
+
+        #mic-indicator {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--line);
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        #mic-indicator.activo {
+            background: var(--gold2);
+            box-shadow: 0 0 8px var(--gold2);
+            animation: mic-pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes mic-pulse {
+            0%,100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.7); opacity: 0.5; }
+        }
+
+        /* ── BOTÓN MODO SILENCIOSO ── */
+        #btn-silencioso {
+            margin-top: 14px;
+            font-family: var(--f-mono);
+            font-size: 0.6rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: transparent;
+            border: 1px solid var(--line);
+            color: var(--dim);
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #btn-silencioso:hover  { border-color: var(--gold); color: var(--gold); background: rgba(201,146,42,0.06); }
+        #btn-silencioso.activo { border-color: var(--cyan); color: var(--cyan); background: rgba(45,225,252,0.06); box-shadow: 0 0 18px rgba(45,225,252,0.2); }
+
+        /* ── PANEL MANUAL ── */
+        #panel-manual {
+            width: 100%;
+            max-width: 980px;
+            border: 1px solid rgba(45,225,252,0.3);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 0 40px rgba(45,225,252,0.08);
+        }
+        #mensaje-nexus {
+            font-family: var(--f-mono);
+            font-size: 0.85rem;
+            color: var(--cyan);
+            margin-bottom: 14px;
+            letter-spacing: 0.5px;
+            line-height: 1.5;
+        }
+        .fila-manual { display: flex; gap: 10px; margin-bottom: 10px; }
+        #input-manual {
+            flex: 1;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--line);
+            color: var(--cream);
+            font-family: var(--f-body);
+            font-size: 0.95rem;
+            font-weight: 400;
+            padding: 12px 16px;
+            outline: none;
+            transition: border-color 0.25s;
+        }
+        #input-manual:focus { border-color: var(--gold); }
+        #input-manual::placeholder { color: rgba(245,234,216,0.25); }
+        .fila-manual button {
+            font-family: var(--f-mono);
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: var(--gold);
+            color: #0a0800;
+            border: none;
+            padding: 12px 22px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: filter 0.2s;
+        }
+        .fila-manual button:hover { filter: brightness(1.15); }
+        .fila-botones { display: flex; gap: 8px; flex-wrap: wrap; }
+        .fila-botones button {
+            font-family: var(--f-mono);
+            font-size: 0.58rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: transparent;
+            color: rgba(245,234,216,0.5);
+            border: 1px solid var(--line);
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fila-botones button:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* ── TARJETA PRINCIPAL ── */
+        #receta {
+            width: 100%;
+            max-width: 980px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--line);
+            padding: clamp(24px, 5vw, 52px);
+            position: relative;
+            transition: border-color 0.5s, box-shadow 0.5s;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.7), inset 0 1px 0 rgba(201,146,42,0.08);
+        }
+
+        /* Esquinas decorativas */
+        #receta .deco-corner {
+            position: absolute;
+            width: 28px; height: 28px;
+            border-color: var(--gold);
+            border-style: solid;
+            opacity: 0.55;
+            transition: opacity 0.4s, border-color 0.4s;
+        }
+        #receta .deco-corner.tl { top: -1px; left: -1px;  border-width: 1px 0 0 1px; }
+        #receta .deco-corner.tr { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
+        #receta .deco-corner.bl { bottom: -1px; left: -1px;  border-width: 0 0 1px 1px; }
+        #receta .deco-corner.br { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+        /* Estados */
+        .escuchando-celeste {
+            border-color: var(--cyan) !important;
+            box-shadow: 0 0 60px rgba(45,225,252,0.14), 0 40px 100px rgba(0,0,0,0.7) !important;
+        }
+        .escuchando-celeste .deco-corner { border-color: var(--cyan) !important; opacity: 0.8 !important; }
+
+        .hablando-dorado {
+            border-color: var(--gold2) !important;
+            box-shadow: 0 0 60px rgba(240,192,96,0.18), 0 40px 100px rgba(0,0,0,0.7) !important;
+        }
+        .hablando-dorado .deco-corner { opacity: 1 !important; }
+
+        .error-rojo {
+            border-color: var(--red) !important;
+            box-shadow: 0 0 50px var(--red-g), 0 40px 100px rgba(0,0,0,0.7) !important;
+        }
+        .error-rojo .deco-corner { border-color: var(--red) !important; }
+
+        /* ── ORBE CENTRAL ── */
+        .orbe-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+        .orbe {
+            position: relative;
+            width: clamp(80px, 14vw, 120px);
+            height: clamp(80px, 14vw, 120px);
+        }
+        .orbe-anillo-ext {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 1px solid rgba(201,146,42,0.25);
+            animation: girar-lento 18s linear infinite;
+        }
+        .orbe-anillo-ext::before {
+            content: "";
+            position: absolute;
+            top: -2px; left: 50%;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--gold2);
+            box-shadow: 0 0 8px var(--gold2);
+            transform: translateX(-50%);
+        }
+        .orbe-anillo-int {
+            position: absolute;
+            inset: 15%;
+            border-radius: 50%;
+            border: 1px solid rgba(201,146,42,0.15);
+            animation: girar-lento 10s linear infinite reverse;
+        }
+        .orbe-nucleo {
+            position: absolute;
+            inset: 30%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 38% 35%, var(--gold3), var(--gold2) 45%, var(--gold) 80%, rgba(201,146,42,0.1) 100%);
+            box-shadow:
+                0 0 16px rgba(240,192,96,0.7),
+                0 0 40px rgba(201,146,42,0.4),
+                0 0 80px rgba(201,146,42,0.15);
+            animation: nucleo-respirar 3s ease-in-out infinite;
+        }
+        @keyframes girar-lento { to { transform: rotate(360deg); } }
+        @keyframes nucleo-respirar {
+            0%,100% { transform: scale(0.9);  box-shadow: 0 0 16px rgba(240,192,96,0.7), 0 0 40px rgba(201,146,42,0.4), 0 0 80px rgba(201,146,42,0.15); }
+            50%      { transform: scale(1.08); box-shadow: 0 0 24px rgba(255,233,160,0.9), 0 0 60px rgba(201,146,42,0.6), 0 0 120px rgba(201,146,42,0.25); }
+        }
+
+        /* Estado escuchando: orbe cian */
+        #receta.escuchando-celeste .orbe-nucleo {
+            background: radial-gradient(circle at 38% 35%, #fff, var(--cyan) 50%, rgba(45,225,252,0.2) 100%);
+            box-shadow: 0 0 20px rgba(45,225,252,0.8), 0 0 50px rgba(45,225,252,0.4), 0 0 100px rgba(45,225,252,0.15);
+            animation: nucleo-scan 1s ease-in-out infinite;
+        }
+        #receta.escuchando-celeste .orbe-anillo-ext::before { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        @keyframes nucleo-scan {
+            0%,100% { transform: scale(0.92); }
+            50%      { transform: scale(1.12); }
+        }
+
+        /* Estado hablando: orbe más brillante */
+        #receta.hablando-dorado .orbe-nucleo {
+            animation: nucleo-habla 0.6s ease-in-out infinite;
+        }
+        @keyframes nucleo-habla {
+            0%,100% { transform: scale(0.88); box-shadow: 0 0 20px rgba(255,233,160,0.9), 0 0 50px rgba(240,192,96,0.7), 0 0 100px rgba(201,146,42,0.35); }
+            50%      { transform: scale(1.15); box-shadow: 0 0 35px #fff, 0 0 80px rgba(240,192,96,0.9), 0 0 150px rgba(201,146,42,0.5); }
+        }
+
+        /* ── PANTALLA INICIAL ── */
+        #inicial {
+            text-align: center;
+            padding: 16px 0 32px;
+        }
+        .inicial-instruccion {
+            font-family: var(--f-mono);
+            font-size: 0.68rem;
+            letter-spacing: 4px;
+            color: rgba(201,146,42,0.4);
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+        .inicial-leo {
+            font-family: var(--f-display);
+            font-size: clamp(1.4rem, 4vw, 2.2rem);
+            font-weight: 600;
+            color: var(--gold2);
+            letter-spacing: 5px;
+            text-shadow: 0 0 30px rgba(240,192,96,0.5);
+            animation: leo-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes leo-pulse {
+            0%,100% { opacity: 1; text-shadow: 0 0 30px rgba(240,192,96,0.5); }
+            50%      { opacity: 0.5; text-shadow: 0 0 10px rgba(240,192,96,0.2); }
+        }
+
+        /* ── DATOS DEL CÓCTEL ── */
+        .grid-receta {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            align-items: center;
+        }
+        @media (min-width: 800px) {
+            .grid-receta { flex-direction: row; align-items: flex-start; text-align: left; }
+            #foto       { width: 40%; }
+            #info-texto { width: 60%; }
+        }
+
+        #foto {
+            width: 100%;
+            max-height: 420px;
+            object-fit: cover;
+            display: none;
+            border: 1px solid var(--line);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 30px rgba(201,146,42,0.08);
+        }
+
+        .titulo-bebida {
+            font-family: var(--f-display);
+            font-weight: 700;
+            font-size: clamp(2rem, 6vw, 3.4rem);
+            color: var(--cream);
+            letter-spacing: 2px;
+            margin-bottom: 22px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .label {
+            font-family: var(--f-mono);
+            font-size: 0.6rem;
+            letter-spacing: 4px;
+            color: var(--gold);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+        .label::before {
+            content: "";
+            width: 20px; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold));
+        }
+        .label::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--line), transparent);
+        }
+
+        .contenido {
+            font-weight: 300;
+            font-size: clamp(1rem, 3vw, 1.25rem);
+            line-height: 1.65;
+            color: rgba(245,234,216,0.8);
+            margin-bottom: 28px;
+            letter-spacing: 0.3px;
+        }
+        #txt-ingredientes.contenido {
+            color: var(--gold2);
+            opacity: 0.9;
+        }
+
+        /* ── HUD INFERIOR ── */
+        .hud-bar {
+            display: flex;
+            justify-content: center;
+            gap: clamp(20px, 5vw, 60px);
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+            flex-wrap: wrap;
+        }
+        .hud-item {
+            text-align: center;
+        }
+        .hud-val {
+            display: block;
+            font-family: var(--f-display);
+            font-weight: 600;
+            font-size: clamp(1.3rem, 3.5vw, 2rem);
+            color: var(--gold2);
+            text-shadow: 0 0 16px rgba(240,192,96,0.35);
+            letter-spacing: 2px;
+        }
+        .hud-key {
+            display: block;
+            font-family: var(--f-mono);
+            font-size: 0.55rem;
+            letter-spacing: 3px;
+            color: var(--dim);
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+
+        /* ── SPINNER ── */
+        .spinner {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border: 1.5px solid rgba(201,146,42,0.2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: girar-lento 0.8s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            h1, .orbe-nucleo, .orbe-anillo-ext, .orbe-anillo-int,
+            .inicial-leo, .spinner, #mic-indicator { animation: none !important; }
+        }
+
+        /* ═══════════════════════════════════════════
+           MODO TRABAJO — activado con body.modo-trabajo
+           Prioridad absoluta: legibilidad, velocidad
+        ═══════════════════════════════════════════ */
+
+        /* Botón toggle modo */
+        #btn-modo {
+            margin-top: 12px;
+            font-family: var(--f-mono);
+            font-size: 0.6rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: transparent;
+            border: 1px solid var(--line);
+            color: var(--dim);
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #btn-modo:hover { border-color: var(--gold2); color: var(--gold2); }
+        body.modo-trabajo #btn-modo {
+            border-color: #4caf50;
+            color: #4caf50;
+            background: rgba(76,175,80,0.08);
+            box-shadow: 0 0 14px rgba(76,175,80,0.2);
+        }
+
+        /* En modo trabajo ocultamos decoración innecesaria */
+        body.modo-trabajo .eyebrow,
+        body.modo-trabajo .subtitle,
+        body.modo-trabajo .gold-rule,
+        body.modo-trabajo .orbe-wrap,
+        body.modo-trabajo .deco-corner,
+        body.modo-trabajo .hud-bar,
+        body.modo-trabajo .inicial-instruccion { display: none !important; }
+
+        body.modo-trabajo { background: #0d0d0d; padding: 12px; }
+
+        body.modo-trabajo h1 {
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            letter-spacing: 6px;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+            color: var(--gold2);
+            text-shadow: none;
+            animation: none;
+        }
+
+        body.modo-trabajo .header { margin-bottom: 10px; }
+
+        body.modo-trabajo #status {
+            font-size: 0.75rem;
+            padding: 5px 14px;
+            border-color: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.5);
+        }
+
+        body.modo-trabajo #receta {
+            background: #111;
+            border: 2px solid #222;
+            border-radius: 8px;
+            padding: clamp(16px, 3vw, 28px);
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+
+        /* Sin animación en el borde al escuchar/hablar — solo color */
+        body.modo-trabajo #receta.escuchando-celeste {
+            border-color: #2de1fc !important;
+            box-shadow: 0 0 0 3px rgba(45,225,252,0.15) !important;
+        }
+        body.modo-trabajo #receta.hablando-dorado {
+            border-color: var(--gold2) !important;
+            box-shadow: 0 0 0 3px rgba(240,192,96,0.15) !important;
+        }
+
+        /* Pantalla inicial en modo trabajo */
+        body.modo-trabajo .inicial-leo {
+            font-family: var(--f-mono);
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.4);
+            text-shadow: none;
+            animation: none;
+        }
+
+        /* NOMBRE DEL CÓCTEL — enorme y claro */
+        body.modo-trabajo .titulo-bebida {
+            font-family: var(--f-body);
+            font-size: clamp(2.2rem, 6vw, 4rem);
+            font-weight: 700;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            line-height: 1;
+            text-shadow: 0 0 30px rgba(255,255,255,0.1);
+        }
+
+        /* LABEL en modo trabajo: simple y rápido de leer */
+        body.modo-trabajo .label {
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.35);
+            opacity: 1;
+        }
+        body.modo-trabajo .label::before,
+        body.modo-trabajo .label::after { display: none; }
+
+        /* INGREDIENTES — el texto más importante, grande y dorado */
+        body.modo-trabajo #txt-ingredientes.contenido {
+            font-family: var(--f-body);
+            font-size: clamp(1.3rem, 4vw, 2rem);
+            font-weight: 600;
+            color: var(--gold2);
+            line-height: 1.5;
+            letter-spacing: 0.2px;
+            margin-bottom: 20px;
+        }
+
+        /* PREPARACIÓN — grande y clara, fácil de seguir paso a paso */
+        body.modo-trabajo #txt-preparacion.contenido {
+            font-family: var(--f-body);
+            font-size: clamp(1.1rem, 3.2vw, 1.6rem);
+            font-weight: 400;
+            color: rgba(255,255,255,0.85);
+            line-height: 1.7;
+            letter-spacing: 0.2px;
+        }
+
+        /* Foto más pequeña en modo trabajo para dar espacio al texto */
+        body.modo-trabajo #foto { max-height: 260px; }
+
+        /* Panel manual más compacto */
+        body.modo-trabajo #panel-manual {
+            border-color: rgba(45,225,252,0.2);
+            background: #111;
+            box-shadow: none;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        body.modo-trabajo #mensaje-nexus {
+            font-size: 0.85rem;
+        }
+        body.modo-trabajo #input-manual {
+            font-size: 1.1rem;
+            padding: 14px 16px;
+            border-color: #333;
+            background: #0a0a0a;
+        }
+    </style>
+</head>
+<body onclick="despertarSistema()">
+
+    <div class="header">
+        <span class="eyebrow">Sistema de inteligencia · Coctelería</span>
+        <h1>NEXUS</h1>
+        <span class="subtitle">Asistente de voz avanzado · v3.0</span>
+        <br>
+        <div id="status"><span id="mic-indicator"></span>SISTEMA ONLINE</div>
+        <br>
+        <button id="btn-silencioso" onclick="event.stopPropagation(); toggleModoSilencioso();">⬡ MODO VOZ</button>
+        <button id="btn-modo" onclick="event.stopPropagation(); toggleModoTrabajo();">⚒ MODO TRABAJO</button>
+    </div>
+
+    <div class="gold-rule"></div>
+
+    <div id="panel-manual" style="display: none;">
+        <p id="mensaje-nexus">Nexus listo. Ingrese su pedido.</p>
+        <div class="fila-manual">
+            <input type="text" id="input-manual"
+                placeholder="Nombre del cóctel, ingredientes disponibles, o un comando..."
+                onclick="event.stopPropagation();"
+                onkeypress="if(event.key==='Enter'){event.stopPropagation(); enviarComandoManual();}">
+            <button onclick="event.stopPropagation(); enviarComandoManual();">Ejecutar</button>
+        </div>
+        <div class="fila-botones">
+            <button onclick="event.stopPropagation(); procesarComando('si');">Confirmar</button>
+            <button onclick="event.stopPropagation(); procesarComando('no');">Cancelar</button>
+            <button onclick="event.stopPropagation(); procesarComando('repite');">Repetir</button>
+            <button onclick="event.stopPropagation(); procesarComando('sorprendeme');">Sorpresa</button>
+        </div>
+    </div>
+
+    <div id="receta">
+        <div class="deco-corner tl"></div>
+        <div class="deco-corner tr"></div>
+        <div class="deco-corner bl"></div>
+        <div class="deco-corner br"></div>
+
+        <!-- Orbe central -->
+        <div class="orbe-wrap" aria-hidden="true">
+            <div class="orbe">
+                <div class="orbe-anillo-ext"></div>
+                <div class="orbe-anillo-int"></div>
+                <div class="orbe-nucleo"></div>
+            </div>
+        </div>
+
+        <div id="inicial">
+            <p class="inicial-instruccion">Toca la pantalla para activar</p>
+            <p class="inicial-leo">Di &ldquo;Leo&rdquo; para comenzar</p>
+        </div>
+
+        <div id="dinamico" style="display: none;">
+            <div class="grid-receta">
+                <img id="foto" src="" alt="Bebida">
+                <div id="info-texto">
+                    <h2 id="nombre-bebida" class="titulo-bebida"></h2>
+                    <div>
+                        <span class="label">Ingredientes</span>
+                        <p id="txt-ingredientes" class="contenido"></p>
+                    </div>
+                    <div id="sec-preparacion" style="opacity: 0.2; transition: opacity 0.6s;">
+                        <span class="label">Preparación</span>
+                        <p id="txt-preparacion" class="contenido"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD datos en tiempo real -->
+        <div class="hud-bar">
+            <div class="hud-item">
+                <span class="hud-val" id="hud-pedidos">00</span>
+                <span class="hud-key">Pedidos</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-val" id="hud-estado">Idle</span>
+                <span class="hud-key">Estado</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-val" id="hud-modo">Voz</span>
+                <span class="hud-key">Modo</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-val" id="hud-rush" style="color: var(--dim);">Off</span>
+                <span class="hud-key">Rush</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const URL_SUPABASE = 'https://bpmxnvvjuxumdateudfi.supabase.co';
+        const KEY_SUPABASE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbXhudnZqdXh1bWRhdGV1ZGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODg0NzMsImV4cCI6MjA5MTg2NDQ3M30.lWDHvHHG1DvmSNHXRIkQiRy0AA6B7m-gdae12TRULIk';
+        const _supabase = supabase.createClient(URL_SUPABASE, KEY_SUPABASE);
+
+        // ---------- Estado global ----------
+        let rec;
+        let voces = [];
+        let estadoInteraccion = "esperando";
+        let datosActuales = null;
+        let microfonoActivo = false;
+        let inicializado = false;
+        let wakeLock = null;
+        let recReiniciando = false;
+        let recCorriendo = false;
+        let debeReanudarMic = false;
+        let hablando = false;
+        let micPermisoSolicitado = false;
+        let cocktailsCache = null;
+        let cargandoCocteles = false;
+        let historialCocteles = {};
+        let candidatoSimilar = null;
+        let modoSilencioso = false;
+        let mapeoAprendido = {};
+        let vozPendienteAprendizaje = null;
+        let tiemposPedidos = [];
+        let modoRush = false;
+        const RUSH_VENTANA_MS = 5 * 60 * 1000;
+        const RUSH_UMBRAL = 4;
+
+        const PALABRAS_AFIRMATIVAS = ["si","sí","dale","claro","eso es","afirmativo","correcto"];
+        const PALABRAS_NEGATIVAS   = ["no","negativo","para nada","incorrecto"];
+        const PALABRAS_FUERTE = ["ron","vodka","whisky","whiskey","tequila","gin","ginebra","brandy","pisco","aguardiente","cognac","mezcal","absenta"];
+        const PALABRAS_SUAVE  = ["jugo","soda","agua tonica","limonada","refresco","jarabe","sprite","ginger ale"];
+        const TIPS_BARTENDER  = [
+            "Tip: enfría siempre el vaso antes de servir cócteles fríos.",
+            "Tip: la calidad del hielo cambia el sabor final.",
+            "Tip: agita con energía los cócteles que llevan cítricos.",
+            "Tip: remueve, no agites, los cócteles que son solo licores.",
+            "Tip: la cáscara de cítrico libera aceites que mejoran el aroma."
+        ];
+        function tipAleatorio() { return TIPS_BARTENDER[Math.floor(Math.random() * TIPS_BARTENDER.length)]; }
+
+        // ---------- Historial ----------
+        function cargarHistorial() {
+            try { const g = localStorage.getItem('nexus_historial'); historialCocteles = g ? JSON.parse(g) : {}; } catch(e) { historialCocteles = {}; }
+        }
+        function registrarHistorial(nombre) {
+            historialCocteles[nombre] = (historialCocteles[nombre] || 0) + 1;
+            try { localStorage.setItem('nexus_historial', JSON.stringify(historialCocteles)); } catch(e) {}
+        }
+        function obtenerFavorito() {
+            const e = Object.entries(historialCocteles);
+            if (!e.length) return null;
+            e.sort((a,b) => b[1]-a[1]);
+            return e[0];
+        }
+
+        // ---------- Aprendizaje ----------
+        function cargarMapeoAprendido() {
+            try { const g = localStorage.getItem('nexus_aprendizaje'); mapeoAprendido = g ? JSON.parse(g) : {}; } catch(e) { mapeoAprendido = {}; }
+        }
+        function aprenderCoincidencia(voz, nombre) {
+            if (!voz) return;
+            mapeoAprendido[voz] = nombre;
+            try { localStorage.setItem('nexus_aprendizaje', JSON.stringify(mapeoAprendido)); } catch(e) {}
+        }
+
+        // ---------- Rush ----------
+        function actualizarModoRush() {
+            const ahora = Date.now();
+            tiemposPedidos.push(ahora);
+            tiemposPedidos = tiemposPedidos.filter(t => ahora - t <= RUSH_VENTANA_MS);
+            const era = modoRush;
+            modoRush = tiemposPedidos.length >= RUSH_UMBRAL;
+            return !era && modoRush;
+        }
+
+        // ---------- Utilidades ----------
+        function limpiarTexto(str) {
+            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+        }
+        function contienePalabra(texto, palabra) {
+            const t = limpiarTexto(texto), p = limpiarTexto(palabra);
+            return new RegExp(`(^|\\s)${p}(\\s|$|[.,!?])`).test(t);
+        }
+        function esAfirmativo(t) { return PALABRAS_AFIRMATIVAS.some(p => contienePalabra(t,p)); }
+        function esNegativo(t)   { return PALABRAS_NEGATIVAS.some(p => contienePalabra(t,p)); }
+
+        function calcularSimilitud(s1, s2) {
+            s1 = limpiarTexto(s1); s2 = limpiarTexto(s2);
+            const track = Array(s2.length+1).fill(null).map(()=>Array(s1.length+1).fill(null));
+            for(let i=0;i<=s1.length;i++) track[0][i]=i;
+            for(let j=0;j<=s2.length;j++) track[j][0]=j;
+            for(let j=1;j<=s2.length;j++) for(let i=1;i<=s1.length;i++) {
+                const ind = s1[i-1]===s2[j-1]?0:1;
+                track[j][i]=Math.min(track[j][i-1]+1,track[j-1][i]+1,track[j-1][i-1]+ind);
+            }
+            const mayor = Math.max(s1.length,s2.length,1);
+            return (mayor - track[s2.length][s1.length]) / mayor;
+        }
+
+        // ---------- UI ----------
+        function setStatus(texto, esError=false) {
+            const el = document.getElementById("status");
+            const rush = modoRush ? ' &nbsp;⚡ RUSH' : '';
+            el.innerHTML = `<span id="mic-indicator" class="${microfonoActivo?'activo':''}"></span>${texto}${rush}`;
+            el.classList.toggle("error", esError);
+        }
+        function setCargando(activo) {
+            if (activo) document.getElementById("status").innerHTML += '<span class="spinner"></span>';
+        }
+        function actualizarHUD() {
+            const total = Object.values(historialCocteles).reduce((a,b)=>a+b,0);
+            const ped = document.getElementById('hud-pedidos');
+            if (ped) ped.textContent = String(total).padStart(2,'0');
+            const est = document.getElementById('hud-estado');
+            if (est) est.textContent = ({esperando:'Idle',buscando:'Scan',confirmando_parecido:'Conf',preguntando_pasos:'Query',sugerencia_similar:'Sugg',finalizado:'Done'})[estadoInteraccion]||'Idle';
+            const mod = document.getElementById('hud-modo');
+            if (mod) mod.textContent = modoSilencioso ? 'Texto' : 'Voz';
+            const rush = document.getElementById('hud-rush');
+            if (rush) { rush.textContent = modoRush ? 'ON' : 'Off'; rush.style.color = modoRush ? 'var(--gold2)' : 'var(--dim)'; rush.style.textShadow = modoRush ? '0 0 14px rgba(240,192,96,0.5)' : ''; }
+        }
+        setInterval(actualizarHUD, 1000);
+
+        // ---------- Wake Lock ----------
+        const requestWakeLock = async () => {
+            try { if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+        };
+
+        // ---------- Voces ----------
+        function cargarVoces() { voces = window.speechSynthesis.getVoices(); }
+        window.speechSynthesis.onvoiceschanged = cargarVoces;
+        cargarVoces();
+        function obtenerMejorVoz() {
+            if (!voces.length) cargarVoces();
+            return voces.find(v=>v.lang.includes("es")&&v.name.includes("Google")&&v.name.toLowerCase().includes("male"))
+                || voces.find(v=>v.lang.includes("es")&&v.name.includes("Google"))
+                || voces.find(v=>v.lang.includes("es")) || voces[0] || null;
+        }
+
+        // ---------- Micrófono ----------
+        function iniciarReconocimiento() {
+            if (!rec || recReiniciando || !microfonoActivo || recCorriendo) return;
+            recReiniciando = true;
+            try { rec.start(); } catch(e) {}
+            setTimeout(() => { recReiniciando = false; }, 300);
+        }
+        function pausarMicrofono() {
+            if (rec && recCorriendo) try { rec.stop(); } catch(e) {}
+        }
+        function detenerReconocimiento() {
+            microfonoActivo = false;
+            debeReanudarMic = false;
+            pausarMicrofono();
+        }
+
+        // ---------- Hablar ----------
+        function hablar(texto, callback) {
+            if (modoSilencioso) {
+                document.getElementById("mensaje-nexus").innerText = texto;
+                setStatus("MODO TEXTO");
+                if (callback) callback();
+                return;
+            }
+            window.speechSynthesis.cancel();
+            hablando = true;
+            microfonoActivo = false;
+            pausarMicrofono();
+            document.getElementById("receta").classList.remove('escuchando-celeste','error-rojo');
+            document.getElementById("receta").classList.add('hablando-dorado');
+            setStatus("NEXUS HABLANDO...");
+            const msg = new SpeechSynthesisUtterance(texto);
+            const voz = obtenerMejorVoz();
+            if (voz) msg.voice = voz;
+            msg.lang = "es-ES"; msg.rate = 1.15; msg.pitch = 0.75;
+            msg.onend = () => {
+                document.getElementById("receta").classList.remove('hablando-dorado');
+                hablando = false;
+                microfonoActivo = true;
+                setTimeout(() => {
+                    if (estadoInteraccion !== "esperando") {
+                        document.getElementById("receta").classList.add('escuchando-celeste');
+                        setStatus("ESCUCHANDO...");
+                    } else { setStatus("SISTEMA ONLINE"); }
+                    if (!recCorriendo) setTimeout(()=>iniciarReconocimiento(),300);
+                    else debeReanudarMic = true;
+                }, 400);
+                if (callback) callback();
+            };
+            msg.onerror = () => {
+                hablando = false; microfonoActivo = true;
+                if (!recCorriendo) setTimeout(()=>iniciarReconocimiento(),300); else debeReanudarMic = true;
+                if (callback) callback();
+            };
+            window.speechSynthesis.speak(msg);
+        }
+
+        // ---------- Activación ----------
+        function despertarSistema() {
+            cargarVoces(); requestWakeLock();
+            if (!inicializado) {
+                inicializado = true;
+                cargarHistorial(); cargarMapeoAprendido(); precargarCocteles();
+                micPermisoSolicitado = true;
+                microfonoActivo = true;
+                hablar("Nexus activado. Di Leo.");
+            }
+        }
+
+        // ---------- Modo silencioso ----------
+        function toggleModoSilencioso() {
+            modoSilencioso = !modoSilencioso;
+            const btn = document.getElementById('btn-silencioso');
+            const panel = document.getElementById('panel-manual');
+            if (modoSilencioso) {
+                window.speechSynthesis.cancel(); detenerReconocimiento();
+                btn.innerText = "⬡ MODO TEXTO"; btn.classList.add("activo");
+                panel.style.display = "block";
+                document.getElementById("receta").classList.remove('hablando-dorado','escuchando-celeste');
+                if (!inicializado) { inicializado=true; cargarHistorial(); cargarMapeoAprendido(); precargarCocteles(); }
+                if (estadoInteraccion==="esperando") estadoInteraccion="buscando";
+                document.getElementById("mensaje-nexus").innerText = "Modo texto activo. Escribe el cóctel o ingredientes.";
+                setStatus("MODO TEXTO");
+            } else {
+                btn.innerText = "⬡ MODO VOZ"; btn.classList.remove("activo");
+                panel.style.display = "none";
+                micPermisoSolicitado = true; microfonoActivo = true; iniciarReconocimiento();
+                setStatus("SISTEMA ONLINE");
+            }
+        }
+        function enviarComandoManual() {
+            const inp = document.getElementById("input-manual");
+            const t = inp.value.trim(); if (!t) return;
+            inp.value = ""; procesarComando(t);
+        }
+
+        // ---------- Mostrar cóctel ----------
+        function mostrarCoctel(coctel, prefijo="") {
+            datosActuales = coctel;
+            registrarHistorial(coctel.nombre);
+            const recienRush = actualizarModoRush();
+            document.getElementById("inicial").style.display = "none";
+            document.getElementById("dinamico").style.display = "block";
+            document.getElementById("nombre-bebida").innerText = coctel.nombre;
+            document.getElementById("txt-ingredientes").innerText = coctel.ingredientes;
+            document.getElementById("txt-preparacion").innerText = coctel.preparacion;
+            const fotoEl = document.getElementById("foto");
+            if (coctel.imagen) { fotoEl.src = coctel.imagen; fotoEl.style.display="block"; fotoEl.onerror=()=>{fotoEl.style.display="none";}; }
+            else { fotoEl.style.display="none"; }
+            if (modoRush) {
+                document.getElementById("sec-preparacion").style.opacity = "1";
+                estadoInteraccion = modoSilencioso ? "buscando" : "finalizado";
+                hablar(`${recienRush?"Modo rápido. ":""}${prefijo}${coctel.nombre}. ${coctel.ingredientes}. Preparación: ${coctel.preparacion}`);
+            } else {
+                document.getElementById("sec-preparacion").style.opacity = "0.2";
+                estadoInteraccion = "preguntando_pasos";
+                hablar(`${prefijo}${coctel.nombre}. Sus ingredientes son: ${coctel.ingredientes}. ¿Quieres saber cómo se prepara?`);
+            }
+        }
+
+        // ---------- Cache / Supabase ----------
+        async function precargarCocteles() {
+            if (cargandoCocteles || cocktailsCache) return cocktailsCache;
+            cargandoCocteles = true;
+            try {
+                const {data,error} = await _supabase.from('cocteles').select('*');
+                if (error) throw error;
+                cocktailsCache = data || [];
+            } catch(err) { console.error("Error cargando cócteles:", err); cocktailsCache = null; }
+            finally { cargandoCocteles = false; }
+            return cocktailsCache;
+        }
+        async function obtenerCocteles() {
+            if (cocktailsCache) return cocktailsCache;
+            return await precargarCocteles();
+        }
+
+        // ---------- Búsqueda ----------
+        async function buscarCoctel(nombreEscuchado) {
+            setStatus("BUSCANDO..."); setCargando(true);
+            const cocteles = await obtenerCocteles();
+            if (!cocteles) { hablar("Problema de conexión con la base de datos."); document.getElementById("receta").classList.add('error-rojo'); return; }
+            if (!cocteles.length) { hablar("La base de datos está vacía."); return; }
+            const voz = limpiarTexto(nombreEscuchado);
+            if (mapeoAprendido[voz]) {
+                const c = cocteles.find(c=>c.nombre===mapeoAprendido[voz]);
+                if (c) { mostrarCoctel(c); return; }
+            }
+            let directo = cocteles.find(c=>{ const n=limpiarTexto(c.nombre); return voz.includes(n)||n.includes(voz); });
+            if (directo) { mostrarCoctel(directo); return; }
+            let mejor=null, max=0;
+            cocteles.forEach(c=>{ const p=calcularSimilitud(voz,c.nombre); if(p>max){max=p;mejor=c;} });
+            if (mejor && max>0.4) {
+                datosActuales=mejor; vozPendienteAprendizaje=voz; estadoInteraccion="confirmando_parecido";
+                hablar(`¿Te refieres al cóctel ${mejor.nombre}?`);
+            } else { hablar("No encontré ese cóctel. ¿Puedes repetir el nombre?"); estadoInteraccion="buscando"; }
+        }
+
+        // ---------- Recomendador por ingredientes ----------
+        function extraerIngredientesVoz(texto) {
+            let t = limpiarTexto(texto).replace(/que puedo (hacer|preparar) con|puedo (hacer|preparar) con|tengo|en casa/g,"");
+            return t.split(/,| y | con | mas |\+/).map(p=>p.trim()).filter(p=>p.length>1);
+        }
+        async function recomendarPorIngredientes(textoVoz) {
+            const ings = extraerIngredientesVoz(textoVoz);
+            if (!ings.length) { hablar("No entendí los ingredientes. ¿Puedes repetirlos?"); return; }
+            setStatus("ANALIZANDO..."); const cocteles = await obtenerCocteles();
+            if (!cocteles) { hablar("No pude acceder a la base de datos."); return; }
+            const candidatos = cocteles.map(c=>({ coctel:c, n:ings.filter(i=>limpiarTexto(c.ingredientes).includes(i)).length }))
+                .filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
+            if (!candidatos.length) { hablar(`No encontré cócteles con ${ings.join(", ")}.`); estadoInteraccion="buscando"; return; }
+            if (candidatos.length===1||candidatos[0].n>candidatos[1].n) { mostrarCoctel(candidatos[0].coctel,"Con esos ingredientes te recomiendo: "); }
+            else {
+                const top=candidatos.slice(0,3).map(x=>x.coctel.nombre);
+                setStatus(`OPCIONES: ${top.join(", ")}`);
+                hablar(`Podrías preparar: ${top.join(", ")}. ¿Cuál te preparo?`); estadoInteraccion="buscando";
+            }
+        }
+
+        // ---------- Cóctel similar ----------
+        async function sugerirSimilar() {
+            if (!datosActuales) { hablar("Primero dime qué cóctel preparas."); return; }
+            const cocteles = await obtenerCocteles();
+            if (!cocteles) { hablar("No pude acceder a la base de datos."); return; }
+            const base = limpiarTexto(datosActuales.ingredientes).split(/,| y /).map(s=>s.trim()).filter(Boolean);
+            let mejor=null, max=0;
+            cocteles.forEach(c=>{ if(c.nombre===datosActuales.nombre) return; const s=base.filter(i=>limpiarTexto(c.ingredientes).includes(i)).length; if(s>max){max=s;mejor=c;} });
+            if (mejor&&max>0) { candidatoSimilar=mejor; estadoInteraccion="sugerencia_similar"; hablar(`Si te gusta ${datosActuales.nombre}, también podrías probar ${mejor.nombre}. ¿Quieres ver la receta?`); }
+            else { hablar("No encontré un cóctel parecido."); }
+        }
+
+        // ---------- Modo sorpresa ----------
+        async function modoSorpresa() {
+            const cocteles = await obtenerCocteles();
+            if (!cocteles||!cocteles.length) { hablar("No tengo cócteles disponibles."); return; }
+            const fav = obtenerFavorito();
+            let elegido = (fav && Math.random()<0.4) ? cocteles.find(c=>c.nombre===fav[0]) : null;
+            if (!elegido) elegido = cocteles[Math.floor(Math.random()*cocteles.length)];
+            mostrarCoctel(elegido,"Te sugiero: ");
+        }
+
+        // ---------- Clasificador de intensidad ----------
+        function clasificarIntensidad(coctel) {
+            return PALABRAS_FUERTE.some(p=>limpiarTexto(coctel.ingredientes).includes(p)) ? "fuerte" : "suave";
+        }
+        async function filtrarPorIntensidad(tipo) {
+            setStatus(tipo==="fuerte"?"BUSCANDO ALGO FUERTE...":"BUSCANDO ALGO SUAVE...");
+            const cocteles = await obtenerCocteles();
+            if (!cocteles) { hablar("No pude acceder a la base de datos."); return; }
+            const filtrados = cocteles.filter(c=>clasificarIntensidad(c)===tipo);
+            if (!filtrados.length) { hablar(`No tengo cócteles ${tipo==="fuerte"?"fuertes":"suaves"} registrados.`); estadoInteraccion="buscando"; return; }
+            if (filtrados.length<=3) { hablar(`Opciones ${tipo==="fuerte"?"fuertes":"suaves"}: ${filtrados.map(c=>c.nombre).join(", ")}. ¿Cuál te preparo?`); estadoInteraccion="buscando"; }
+            else { mostrarCoctel(filtrados[Math.floor(Math.random()*filtrados.length)],`Te recomiendo algo ${tipo}: `); }
+        }
+
+        // ---------- Procesamiento de comandos ----------
+        function procesarComando(texto) {
+            texto = texto.toLowerCase();
+            if (["cerrar sistema","finalizar","descansar","apagar"].some(p=>texto.includes(p))) {
+                hablar("Nexus fuera. Sistemas en reposo.", ()=>{
+                    estadoInteraccion = modoSilencioso?"buscando":"esperando";
+                    datosActuales=null;
+                    document.getElementById("dinamico").style.display="none";
+                    document.getElementById("inicial").style.display="block";
+                    document.getElementById("foto").src="";
+                    document.getElementById("receta").classList.remove('hablando-dorado','escuchando-celeste','error-rojo');
+                }); return;
+            }
+            if (texto.includes("favorito")||texto.includes("mas pido")||texto.includes("mas pedido")) {
+                const fav=obtenerFavorito();
+                if (fav) hablar(`Tu cóctel favorito es ${fav[0]}, pedido ${fav[1]} ${fav[1]===1?'vez':'veces'}.`);
+                else hablar("Aún no tengo suficiente historial.");
+                return;
+            }
+            if (texto.includes("repite") && datosActuales) {
+                if (texto.includes("ingredientes")) hablar(`Los ingredientes son: ${datosActuales.ingredientes}`);
+                else if (texto.includes("preparacion")||texto.includes("preparación")) hablar(`La preparación es: ${datosActuales.preparacion}`);
+                else hablar(`${datosActuales.nombre}. Ingredientes: ${datosActuales.ingredientes}.`);
+                return;
+            }
+            if (!modoSilencioso && contienePalabra(texto,"leo")) { estadoInteraccion="buscando"; hablar("Te escucho."); return; }
+            if (estadoInteraccion==="buscando") {
+                if (texto.includes("sorprende")||texto.includes("recomiendame algo")||texto.includes("recomienda algo")) modoSorpresa();
+                else if (texto.includes("sin alcohol")||(texto.includes("suave")&&!texto.includes("fuerte"))) filtrarPorIntensidad("suave");
+                else if (texto.includes("fuerte")&&!texto.includes("suave")) filtrarPorIntensidad("fuerte");
+                else if (texto.includes("tengo ")||texto.includes("que puedo hacer")||texto.includes("que puedo preparar")) recomendarPorIngredientes(texto);
+                else if (texto.includes("parecido")||texto.includes("similar")) sugerirSimilar();
+                else buscarCoctel(texto);
+            } else if (estadoInteraccion==="confirmando_parecido") {
+                if (esAfirmativo(texto)) { if(vozPendienteAprendizaje){aprenderCoincidencia(vozPendienteAprendizaje,datosActuales.nombre);vozPendienteAprendizaje=null;} mostrarCoctel(datosActuales); }
+                else if (esNegativo(texto)) { vozPendienteAprendizaje=null; estadoInteraccion="buscando"; hablar("Entendido. ¿Qué cóctel preparas entonces?"); }
+            } else if (estadoInteraccion==="sugerencia_similar") {
+                if (esAfirmativo(texto)&&candidatoSimilar) { mostrarCoctel(candidatoSimilar); candidatoSimilar=null; }
+                else if (esNegativo(texto)) { hablar("Entendido."); estadoInteraccion=modoSilencioso?"buscando":"finalizado"; candidatoSimilar=null; }
+            } else if (estadoInteraccion==="preguntando_pasos") {
+                if (esAfirmativo(texto)) {
+                    document.getElementById("sec-preparacion").style.opacity="1";
+                    hablar(`Pasos: ${datosActuales.preparacion}${Math.random()<0.5?'. '+tipAleatorio():''}`);
+                    estadoInteraccion=modoSilencioso?"buscando":"finalizado";
+                } else if (esNegativo(texto)) { hablar("Entendido. Si quieres, pídeme algo parecido o dime qué ingredientes tienes."); estadoInteraccion=modoSilencioso?"buscando":"finalizado"; }
+            } else if (modoSilencioso) { estadoInteraccion="buscando"; buscarCoctel(texto); }
+        }
+
+        // ---------- Reconocimiento de voz ----------
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            rec = new SpeechRecognition();
+            rec.lang = "es-ES"; rec.continuous = true; rec.interimResults = false;
+            rec.onstart  = () => { recCorriendo=true; };
+            rec.onresult = (e) => {
+                if (hablando) return;
+                procesarComando(e.results[e.results.length-1][0].transcript.toLowerCase());
+            };
+            rec.onend = () => {
+                recCorriendo=false; recReiniciando=false;
+                if (debeReanudarMic) { debeReanudarMic=false; setTimeout(()=>{if(microfonoActivo&&!modoSilencioso)iniciarReconocimiento();},300); }
+                else if (microfonoActivo&&!modoSilencioso&&!hablando) iniciarReconocimiento();
+            };
+            rec.onerror = (e) => {
+                recCorriendo=false; recReiniciando=false;
+                if (e.error!=='no-speech'&&e.error!=='aborted') console.warn("Error rec:",e.error);
+                if (debeReanudarMic) { debeReanudarMic=false; setTimeout(()=>{if(microfonoActivo&&!modoSilencioso)iniciarReconocimiento();},500); }
+                else setTimeout(()=>{if(microfonoActivo&&!modoSilencioso&&!hablando)iniciarReconocimiento();},500);
+            };
+        } else {
+            setStatus("RECONOCIMIENTO DE VOZ NO DISPONIBLE", true);
+        }
+
+        // ---------- Modo Trabajo ----------
+        let modoTrabajo = false;
+        function toggleModoTrabajo() {
+            modoTrabajo = !modoTrabajo;
+            document.body.classList.toggle('modo-trabajo', modoTrabajo);
+            const btn = document.getElementById('btn-modo');
+            btn.textContent = modoTrabajo ? '✦ MODO PRESENTACIÓN' : '⚒ MODO TRABAJO';
+            try { localStorage.setItem('nexus_modo_trabajo', modoTrabajo ? '1' : '0'); } catch(e) {}
+        }
+        // Restaurar preferencia al recargar
+        try { if (localStorage.getItem('nexus_modo_trabajo') === '1') toggleModoTrabajo(); } catch(e) {}
+    </script>
+</body>
+</html>
